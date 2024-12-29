@@ -29,6 +29,7 @@ async def get_access_token():
         "grant_type": "refresh_token",
         "refresh_token": REFRESH_TOKEN
     }
+    
     response = requests.post(endpoint, headers=headers, data=data)
     if response.status_code == 200:
         new_access_token = response.json().get("access_token")
@@ -63,8 +64,6 @@ async def get_playback_device(access_token):
     else:
         print(f"Error fetching devices: {response.status_code}, {response.json()}")
         return None
-    
-    #return "8628d334-bfba-414f-8c9b-fd025046f74b_amzn_1"
 
 # Function to play a specific track
 async def play_album(access_token, album_uri, device_id=None):
@@ -81,7 +80,6 @@ async def play_album(access_token, album_uri, device_id=None):
         endpoint += f"?device_id={device_id}"
     
     response = requests.put(endpoint, json=body, headers=headers)
-    
     if response.status_code == 204:
         print("Album started playing!")
     else:
