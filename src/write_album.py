@@ -36,13 +36,15 @@ if len(album_id) > max_id_length:
     sys.exit()
     
 # Encode album_id into byte array so it can be written to card
-data = album_id.encode("utf-8").hex()
-print("Encoded Data is: " + data)
+encoded_album_id = album_id.encode("utf-8").hex()
 
-# If over 16 bytes split into two blocks
-# Populate remeinder of second block with 00
+# Blocks can only hold 16 bytes each, uri is encoded into hexadecimal, 16 byte cut off is at index 32
+indices = [32]
 
-sys.exit() # remove once finished writing validation code
+# Use list comprhension and slicing to split encoded_album_id into two blocks
+data_blocks = [encoded_album_id[start:end] for start, end in zip([0] + indices, indices + [None])]
+
+print('Successfully encoded album URI')
 
 pn532 = PN532_UART(debug=False, reset=20)
 
@@ -64,37 +66,35 @@ while True:
 
 print('Found card with UID:', [hex(i) for i in uid])
 
-# Stranger in the Night - Bob Seger
-# Block 5: 31 76 68 69 62 35 57 4c 48 52 56 64 4f 70 52 6a
-# Block 6: 69 54 48 6b 31 35 00 00 00 00 00 00 00 00 00 00
-
 try:
+    # Set key, set block number to 1. We set to 1 as block 0 is read only.
     key_a = b'\xFF\xFF\xFF\xFF\xFF\xFF'
+    block_number = 1
     
-    # Write Block #5
-    block_number = 5
-    data = bytes([0x31, 0x76, 0x68, 0x69, 0x62, 0x35, 0x57, 0x4c, 0x48, 0x52, 0x56, 0x64, 0x4f, 0x70, 0x52, 0x6a])
+    for block in data_blocks:
+        # Every 2 characters represents a byte, we need an array of bytes so split substring on every second charcter
+        n = 2
+        byte_array = [block[i:i+n] for i in range(0, len(block), n)]
+        
+        # Convert the hexadecimal pairs into actual byte values
+        data = bytes([int(byte, 16) for byte in byte_array])
+        
+         # If the data is less than 16 bytes, extend it with 0x00 to make it exactly 16 bytes
+        if len(data) < 16:
+            data = data + bytes(16 - len(data))  # Append 0x00 bytes to make the length 16
     
-    pn532.mifare_classic_authenticate_block(uid, block_number=block_number, key_number=nfc.MIFARE_CMD_AUTH_A, key=key_a)
-    pn532.mifare_classic_write_block(block_number, data)
+        pn532.mifare_classic_authenticate_block(uid, block_number=block_number, key_number=nfc.MIFARE_CMD_AUTH_A, key=key_a)
+        pn532.mifare_classic_write_block(block_number, data)
     
-    if pn532.mifare_classic_read_block(block_number) == data:
-        print('write block %d successfully' % block_number)
-    
-    # Write block #6
-    block_number = 6
-    data = bytes([0x69, 0x54, 0x48, 0x6b, 0x31, 0x35, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
-    
-    pn532.mifare_classic_authenticate_block(uid, block_number=block_number, key_number=nfc.MIFARE_CMD_AUTH_A, key=key_a)
-    pn532.mifare_classic_write_block(block_number, data)
-    
-    
-    if pn532.mifare_classic_read_block(block_number) == data:
-        print('write block %d successfully' % block_number)
+        if pn532.mifare_classic_read_block(block_number) == data:
+            print('write block %d successfully' % block_number)
+            
+        # Increment block number
+        block_number +=1
+        
+    print("WRITE SUCCESSFUL! Please remove card!")
           
 except nfc.PN532Error as e:
     print(e.errmsg)
 
 GPIO.cleanup()
-
-
