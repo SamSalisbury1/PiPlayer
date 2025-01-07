@@ -1,13 +1,3 @@
-"""
-Warning: DO NOT write the blocks of 4N+3 (3, 7, 11, ..., 63)
-or else you will change the password for blocks 4N ~ 4N+2.
-
-Note: 
-1.  The first 6 bytes (KEY A) of the 4N+3 blocks are always shown as 0x00,
-since 'KEY A' is unreadable. In contrast, the last 6 bytes (KEY B) of the 
-4N+3 blocks are readable.
-2.  Block 0 is unwritable. 
-"""
 import sys
 import re
 import RPi.GPIO as GPIO
@@ -46,6 +36,8 @@ data_blocks = [encoded_album_id[start:end] for start, end in zip([0] + indices, 
 
 print('Successfully encoded album URI')
 
+
+# UART connection
 pn532 = PN532_UART(debug=False, reset=20)
 
 ic, ver, rev, support = pn532.get_firmware_version()
@@ -87,7 +79,7 @@ try:
         pn532.mifare_classic_write_block(block_number, data)
     
         if pn532.mifare_classic_read_block(block_number) == data:
-            print('write block %d successfully' % block_number)
+            print('Write block %d successfully' % block_number)
             
         # Increment block number
         block_number +=1
