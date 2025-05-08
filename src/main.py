@@ -1,7 +1,11 @@
-from dotenv import dotenv_values, load_dotenv
 import requests
 import base64
 import asyncio
+import re
+import RPi.GPIO as GPIO
+import pn532.pn532 as nfc
+from pn532 import *
+from dotenv import dotenv_values, load_dotenv
 
 # Load .env
 load_dotenv(dotenv_path="../.env")
@@ -13,8 +17,14 @@ CLIENT_ID = dotenv_variables.get("CLIENT_ID")
 CLIENT_SECRET = dotenv_variables.get("CLIENT_SECRET")
 PLAYBACK_DEVICE_NAME = dotenv_variables.get("PLAYBACK_DEVICE_NAME")
 
+# UART connection
+pn532 = PN532_UART(debug=False, reset=20)
+
+# Configure PN532 to communicate with MiFare cards
+pn532.SAM_configuration()
+
 # Continue Scanning until a card is detected
-def scan():
+def scan():    
     return None
 
 # Use refresh token to retrieve new access token
@@ -89,9 +99,44 @@ async def play_album(access_token, album_uri, device_id=None):
 # On Load generate a new access token
 access_token = asyncio.run(get_access_token())
 
-# Example usage
-# Todo use scan function to get album_uri
-album_uri = "spotify:album:1vhib5WLHRVdOpRjiTHk15"          # Stranger In Town - Bob Seger
+# While true
+    # Scan for card return card data
+    # Translate data into hex
+    # Set album uri
+    # set devuce_id
+    # Play album
+print("Listening! Please present card")
+while True:
+    # Check if a card is available to read
+    uid = pn532.read_passive_target(timeout=0.5)
+    print('.', end="")
+    
+    # Try again if no card is available.
+    if uid is not None:
+        break
+
+print('Found card with UID:', [hex(i) for i in uid])
+
+# Set key
+key_a = b'\xFF\xFF\xFF\xFF\xFF\xFF'
+data_blocks = []
+
+for x in range (2):
+    # We need blocks one and two so increment index
+    index = x + 1
+    
+    # Authenticate and read block
+    pn532.mifare_classic_authenticate_block(uid, block_number=index, key_number=nfc.MIFARE_CMD_AUTH_A, key=key_a)
+    block = pn532.mifare_classic_read_block(index)
+    
+    # Filter block and append to list
+    block =  block.replace(b'\x00', b'').decode('utf-8')
+    data_blocks.append(block)
+
+# Append blocks 1 and 2 
+card_data = data_blocks[0] + data_blocks[1] # Assume we always read two blocks
+
+album_uri = "spotify:album:" + card_data          # Stranger In Town - Bob Seger
 device_id = asyncio.run(get_playback_device(access_token))
 
 # play album is an async function
