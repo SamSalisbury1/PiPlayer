@@ -23,10 +23,6 @@ pn532 = PN532_UART(debug=False, reset=20)
 # Configure PN532 to communicate with MiFare cards
 pn532.SAM_configuration()
 
-# Continue Scanning until a card is detected
-def scan():    
-    return None
-
 # Use refresh token to retrieve new access token
 async def get_access_token():
     endpoint = "https://accounts.spotify.com/api/token"
@@ -99,12 +95,7 @@ async def play_album(access_token, album_uri, device_id=None):
 # On Load generate a new access token
 access_token = asyncio.run(get_access_token())
 
-# While true
-    # Scan for card return card data
-    # Translate data into hex
-    # Set album uri
-    # set devuce_id
-    # Play album
+# Scan until card is detected
 print("Listening! Please present card")
 while True:
     # Check if a card is available to read
@@ -135,8 +126,7 @@ for x in range (2):
 
 # Append blocks 1 and 2 
 card_data = data_blocks[0] + data_blocks[1] # Assume we always read two blocks
-
-album_uri = "spotify:album:" + card_data          # Stranger In Town - Bob Seger
+album_uri = "spotify:album:" + card_data
 device_id = asyncio.run(get_playback_device(access_token))
 
 # play album is an async function
