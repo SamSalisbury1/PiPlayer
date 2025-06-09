@@ -2,10 +2,14 @@ import requests
 import base64
 import asyncio
 import re
+import vlc
+import time
+import glob
 import RPi.GPIO as GPIO
 import pn532.pn532 as nfc
 from pn532 import *
 from dotenv import dotenv_values, load_dotenv
+from natsort import natsorted
 
 # Load .env
 load_dotenv(dotenv_path="../.env")
@@ -93,7 +97,7 @@ async def play_album(access_token, album_uri, device_id=None):
 
 
 # On Load generate a new access token
-access_token = asyncio.run(get_access_token())
+# access_token = asyncio.run(get_access_token())
 
 # Scan until card is detected
 print("Listening! Please present card")
@@ -125,10 +129,30 @@ for x in range (2):
     data_blocks.append(block)
 
 # Append blocks 1 and 2 
-card_data = data_blocks[0] + data_blocks[1] # Assume we always read two blocks
-album_uri = "spotify:album:" + card_data
-device_id = asyncio.run(get_playback_device(access_token))
+album_name = data_blocks[0] + data_blocks[1] # Assume we always read two blocks
+# device_id = asyncio.run(get_playback_device(access_token))
+
+# Get all songs in album - Order them into queue
+mp3_files = list(
+    glob.iglob('../albums/'+ album_name +'/*.mp3')
+)
+sorted_mp3_files = natsorted(mp3_files)
+
+# Play queue
+for mp3 in sorted_mp3_files:
+    # Play song
+    p = vlc.MediaPlayer(mp3)
+    p.play()
+    
+    # Let vlc start
+    time.sleep(5)
+    
+    # Keep programming running
+    while p.is_playing():
+        time.sleep(0.1)
+    
+print("Album finished!")
 
 # play album is an async function
-asyncio.run(play_album(access_token, album_uri, device_id))
+# asyncio.run(play_album(access_token, album_uri, device_id))
 
