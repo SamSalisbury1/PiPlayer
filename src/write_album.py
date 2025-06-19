@@ -5,36 +5,31 @@ import RPi.GPIO as GPIO
 import pn532.pn532 as nfc
 from pn532 import *
 
-# We need two arguments, script name and album URI
+# We need two arguments, script name and album name
 arguments = sys.argv
 if len(arguments) != 2:
-    print("Error: Incorrect number of arguments provided. Expected single album URI after script name.")
+    print("Error: Incorrect number of arguments provided. Expected album name after script name. If album name contains spaces please do not type them.")
     sys.exit()
 
 # Ensure that argument matches regex for valid spotify album
-uri = arguments[1]
-pattern = r"^spotify:album:[a-zA-Z0-9]+$"
-if not re.match(pattern, uri):
-    print("Error: This appears to be an invalid album uri. Regex validation failed")
-    sys.exit()
-    
+album_name = arguments[1]
+
 # Ensure that album_id does not exceed max data size
-album_id = uri.split("spotify:album:")[1]
-max_id_length = 32
-if len(album_id) > max_id_length:
-    print("Error: URI ID is too long! Max size of 32 characters.")
+max_length = 32
+if len(album_name) > max_length:
+    print("Error: Album name is too long! Max size of 32 characters. Consider giving it a different name.")
     sys.exit()
     
 # Encode album_id into byte array so it can be written to card
-encoded_album_id = album_id.encode("utf-8").hex()
+encoded_album_id = album_name.encode("utf-8").hex()
 
-# Blocks can only hold 16 bytes each, uri is encoded into hexadecimal, 16 byte cut off is at index 32
+# Blocks can only hold 16 bytes each, album name is encoded into hexadecimal, 16 byte cut off is at index 32
 indices = [32]
 
 # Use list comprhension and slicing to split encoded_album_id into two blocks
 data_blocks = [encoded_album_id[start:end] for start, end in zip([0] + indices, indices + [None])]
 
-print('Successfully encoded album URI')
+print('Successfully encoded album name')
 
 
 # UART connection

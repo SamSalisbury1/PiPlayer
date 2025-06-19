@@ -172,3 +172,6 @@ cython_debug/
 
 # PN532
 pn532/
+
+# MP3s
+albums/
