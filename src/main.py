@@ -1,12 +1,14 @@
-import base64
+#import base64
 import vlc
 import time
 import glob
-import RPi.GPIO as GPIO
-import pn532.pn532 as nfc
-from pn532 import *
 from natsort import natsorted
+import curses
+#import RPi.GPIO as GPIO
+#import pn532.pn532 as nfc
+#from pn532 import *
 
+"""
 # UART connection
 pn532 = PN532_UART(debug=False, reset=20)
 
@@ -44,26 +46,106 @@ for x in range (2):
 
 # Append blocks 1 and 2 
 album_name = data_blocks[0] + data_blocks[1] # Assume we always read two blocks
+"""
+
+# Delete before commit
+album_name = "Hoist"
 
 # Get all songs in album - Order them into queue
 mp3_files = list(
     glob.iglob('../albums/'+ album_name +'/*.mp3')
 )
-sorted_mp3_files = natsorted(mp3_files)
+playlist = natsorted(mp3_files)
 
-# Play queue
-for mp3 in sorted_mp3_files:
-    # Play song
-    p = vlc.MediaPlayer(mp3)
-    p.play()
-    
-    # Let vlc start
-    time.sleep(5)
-    
-    # Keep programming running
-    while p.is_playing():
-        time.sleep(0.1)
-    
-print("Album finished!")
+current_track = 0
+
+player = vlc.MediaPlayer(playlist[current_track])
+player.play()
+
+paused = False
+
+# Set up input
+screen = curses.initscr()
+curses.cbreak()
+screen.keypad(True)
+
+try:
+    while True:
+        key = screen.getch()
+
+        if key == 10: # Enter
+            if paused:
+                player.pause()
+                paused = False
+
+            else:
+                player.pause()
+                paused = True
+
+        elif key == curses.KEY_LEFT:   
+            # If over 5 seconds has elapsed restart the song otherwise go to previous track
+            if player.get_time() > 5000:
+                player.set_time(0)
+                continue
+
+            # To Previous Track
+            player.stop()
+
+            current_track -= 1
+
+            if current_track < 0:
+                current_track = 0
+            
+            player = vlc.MediaPlayer(
+                playlist[current_track]
+            )
+
+            player.play()
+
+        elif key == curses.KEY_RIGHT:
+            player.stop()
+
+            current_track += 1
+
+            if current_track >= len(playlist):
+                screen.addstr("Album finished!")
+                break
+
+            player = vlc.MediaPlayer(
+                playlist[current_track]
+            )
+
+            player.play()
+
+        elif key == curses.KEY_DOWN:
+            break
+
+finally:
+    curses.nocbreak()
+    screen.keypad(False)
+    curses.echo()
+    curses.endwin()
+
+print("Playback ended!")
 
 
+# handle_scan()
+
+# handle_pause()
+
+# handle_back()
+
+# handle_forward()
+
+# handle_shutdown()
+
+# handle_quit()
+
+# update_state(state)
+
+# album = handle_scan()
+# album.play()
+
+# while true:
+    # Read controls and perform desired action
+    # Render UI (clear everything and output global variables)
