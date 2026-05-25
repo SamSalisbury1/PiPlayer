@@ -100,6 +100,7 @@ class State:
         """
         pass
 
+
     def get_state_name(self):
         """
         Debug function
@@ -282,6 +283,40 @@ class NFCReader:
         pass
 
 
+def handle_action_input(app, key):
+    confirmation_action = None
+
+    if key == 10:
+        app.handle_key("ENTER")
+    elif key == curses.KEY_LEFT:
+        app.handle_key("LEFT")
+    elif key == curses.KEY_RIGHT:
+        app.handle_key("RIGHT")
+    elif key == curses.KEY_UP:
+        app.handle_key("UP")
+    elif key == curses.KEY_DOWN:
+        app.handle_key("DOWN")
+    elif key == ord("q") or key == ord("Q"):
+        confirmation_action = "QUIT"
+    
+    return confirmation_action
+
+
+def handle_confirmation_input(key, confirmation_action):
+    if key == ord("y") or key == ord("Y"):
+        if confirmation_action == "QUIT":
+            confirmation_action = "QUIT_CONFIRMED"
+        elif confirmation_action == "SHUTDOWN":
+            pass    # Shutdown - Do nothing right now, I do not want to test this yet
+
+    elif key == ord("n") or key == ord("N"):
+        confirmation_action = None
+    else:
+        pass    # Print bad input
+
+    return confirmation_action
+
+
 def main(screen):
     curses.cbreak()
     screen.keypad(True)
@@ -292,23 +327,24 @@ def main(screen):
     
     app = Context(Stopped(), player, nfc)
 
-    while True:
+    running = True
+    confirmation_action = None
+
+    while running:
         key = screen.getch()
 
-        if key == 10:
-            app.handle_key("ENTER")
-        elif key == curses.KEY_LEFT:
-            app.handle_key("LEFT")
-        elif key == curses.KEY_RIGHT:
-            app.handle_key("RIGHT")
-        elif key == curses.KEY_UP:
-            app.handle_key("UP")
-        elif key == curses.KEY_DOWN:
-            app.handle_key("DOWN")
+        if confirmation_action is None:
+            confirmation_action = handle_action_input(app, key)
+        else:
+            confirmation_action = handle_confirmation_input(key, confirmation_action)
+            
+            if confirmation_action == "QUIT_CONFIRMED":
+                running = False
 
         state = app.get_state_name()
         screen.clear()
         screen.addstr(0, 0, state)
         screen.refresh()
+
 
 curses.wrapper(main)
