@@ -49,7 +49,7 @@ album_name = data_blocks[0] + data_blocks[1] # Assume we always read two blocks
 """
 
 # Delete before commit
-album_name = "Hoist"
+album_name = "Test"
 
 # Get all songs in album - Order them into queue
 mp3_files = list(
