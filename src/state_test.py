@@ -9,6 +9,7 @@ import curses
 from pathlib import Path
 import time
 
+
 class Context:
     def __init__(self, initial_state, player, nfc):
         self.state = None
@@ -17,7 +18,6 @@ class Context:
         self.nfc = nfc
 
         self.set_state(initial_state)
-
 
     # -------------------------
     # State Management
@@ -30,7 +30,6 @@ class Context:
         self.state = new_state
         self.state.enter(self)
 
-
     # -------------------------
     # Input Management
     # -------------------------
@@ -38,10 +37,8 @@ class Context:
     def handle_key(self, key):
         self.state.handle_key(self, key)
 
-
     def hanfle_nfc(self, nfc):
         self.state.handle_nfc(nfc)
-
 
     # -------------------------
     # Player Helpers
@@ -49,35 +46,27 @@ class Context:
 
     def load_album(self, album_name):
         self.player.load_album(album_name)
-
     
     def unload_album(self):
         self.player.unload_album()
 
-
     def play(self):
         self.player.play()
-
 
     def pause(self):
         self.player.pause()
 
-
     def stop(self):
         self.player.stop()
-
 
     def next_track(self):
         self.player.next_track()
 
-
     def previous_track(self):
         self.player.previous_track()
 
-    
     def has_song_ended(self):
         return self.player.has_song_ended()
-
 
     # -------------------------
     # Getters
@@ -86,11 +75,9 @@ class Context:
     def get_state_name(self):
         return self.state.get_state_name()
     
-
     def get_playlist(self):
         return self.player.get_playlist()
     
-
     def get_current_track(self):
         return self.player.get_current_track()
 
@@ -103,7 +90,6 @@ class State:
         """
         pass
 
-
     def exit(self, context):
         """
         We call this when we leave the state
@@ -111,20 +97,17 @@ class State:
         """
         pass
 
-
     def handle_key(self, context, key):
         """
         Handle keyboard input
         """
         pass
 
-
     def handle_nfc(self, context, nfc):
         """
         Handle NFC events
         """
         pass
-
 
     def get_state_name(self):
         """
@@ -136,14 +119,12 @@ class State:
 class Playing(State):
     def enter(self, context):
         context.play()
-
     
     def exit(self, context):
         """
         Ignore
         """
         pass
-
 
     def handle_key(self, context, key):
         if key == "ENTER":
@@ -163,7 +144,6 @@ class Playing(State):
         elif key == "DOWN":
             context.set_state(Stopped())
 
-
     def get_state_name(self):
         return "Playing"
 
@@ -172,13 +152,11 @@ class Paused(State):
     def enter(self, context):
         context.pause()
 
-    
     def exit(self, contex):
         """
         Ignore
         """
         pass
-
 
     def handle_key(self, context, key):
         if key == "ENTER":
@@ -196,7 +174,6 @@ class Paused(State):
         elif key == "DOWN":
             context.set_state(Stopped())
 
-
     def get_state_name(self):
         return "Paused"
 
@@ -205,17 +182,14 @@ class Scanning(State):
     def enter(self, context):
         context.stop()
         #context.nfc.scan()
-        context.load_album("OdysseyAndOracle")
+        context.load_album("Test")
         context.set_state(Playing())
-
 
     def exit(self, context):
         pass
 
-
     def handle_key(self, context, key):
         pass
-
 
     def get_state_name(self):
         return "Scanning"
@@ -226,16 +200,13 @@ class Stopped(State):
         context.stop()
         context.unload_album()
 
-
     def exit(self, context):
         pass
-
 
     def handle_key(self, context, key):
         if key == "UP":
             context.set_state(Scanning())
 
-    
     def get_state_name(self):
         return "Stopped"
 
@@ -246,7 +217,6 @@ class Player:
         self.current_track = 0
         self.player = None
 
-    
     def load_album(self, album_name):
         # Get all songs in album - Order them into queue
         mp3_files = list(
@@ -258,27 +228,22 @@ class Player:
         self.player = vlc.MediaPlayer(
             self.playlist[self.current_track]
         )
-
         
     def unload_album(self):
         if self.playlist != []:
             self.playlist = []
 
-
     def play(self):
         if self.player:
             self.player.play()
-
 
     def pause(self):
         if self.player:
             self.player.pause()
 
-
     def stop(self):
         if self.player:
             self.player.stop()
-
 
     def next_track(self):
         self.stop()
@@ -288,7 +253,6 @@ class Player:
         self.player = vlc.MediaPlayer(
             self.playlist[self.current_track]
         )
-
 
     def previous_track(self):
         # If over 5 seconds has elapsed restart the song otherwise go to previous track
@@ -308,14 +272,11 @@ class Player:
             self.playlist[self.current_track]
         )
 
-
     def has_song_ended(self):
         return ( self.player and self.player.get_state() == vlc.State.Ended )
 
-
     def get_playlist(self):
         return self.playlist
-    
 
     def get_current_track(self):
         return self.current_track
@@ -357,11 +318,13 @@ def build_output(app, confirmation_action):
     return output
 
 
-def print_output(screen, output):    
-    # Abort output if if output exceeds terminal size to prevent crashing.
+def print_output(screen, output):
+    # Clear screen, set output variables and transform output string into array
     screen.clear()
     max_y, max_x = screen.getmaxyx()
     lines = (output).split("\n")
+    
+    # Abort output if if output exceeds terminal size to prevent crashing.
     for i, line in enumerate(lines):
         if i >= max_y -1:
             break
@@ -370,10 +333,15 @@ def print_output(screen, output):
     screen.refresh()
 
 
-def handle_output(app, screen, confirmation_action):
+def handle_output(app, screen, confirmation_action, previous_output):
+    # Build output based on app state and whether a confirmation action has been chosen
     output = build_output(app, confirmation_action)
 
-    print_output(screen, output)
+    # Do not unecessarily re-render - only render if output has been changed since last render
+    if output != previous_output:
+        print_output(screen, output)
+
+    return output
 
 
 def handle_action_input(app, key):
@@ -429,9 +397,8 @@ def main(screen):
     # Used to handle special cases in app such as Quit and Shut Down - Used by handle_output() to render action confirmation screen 
     confirmation_action = None
 
-    # Set re-render variables to stop UI flicker
-    last_render = 0
-    render_interval = 0.1
+    # Store previous output to conditionally render UI if change is made - This stops UI flicker
+    previous_output = None
 
     # Main loop
     running = True
@@ -459,10 +426,7 @@ def main(screen):
                 app.set_state(Stopped())
 
         # Build output based on state of app / confirmation_action and print
-        now = time.time()
-        if now - last_render > render_interval:
-            handle_output(app, screen, confirmation_action)
-            last_render = now
+        previous_output = handle_output(app, screen, confirmation_action, previous_output)
 
 
 curses.wrapper(main)
