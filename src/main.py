@@ -24,21 +24,21 @@ class Context:
     # -------------------------
 
     def set_state(self, new_state):
-        if self.state is not None:
-            self.state.exit(self)
-            
         self.state = new_state
         self.state.enter(self)
 
     # -------------------------
-    # Input Management
+    # State Behaviour
     # -------------------------
 
     def handle_key(self, key):
         self.state.handle_key(self, key)
 
-    def hanfle_nfc(self, nfc_reader):
-        self.state.handle_nfc(nfc_reader)
+    def handle_nfc(self, album_name):
+        self.state.handle_nfc(self, album_name)
+
+    def tick(self):
+        self.state.tick(self)
 
     # -------------------------
     # Player Helpers
@@ -71,9 +71,9 @@ class Context:
     # -------------------------
     # NFC Helpers
     # -------------------------
-
-    def scan(self):
-        return self.nfc_reader.scan()
+    
+    def poll(self):
+        return self.nfc_reader.poll()
 
     # -------------------------
     # Getters
@@ -97,13 +97,6 @@ class State:
         """
         pass
 
-    def exit(self, context):
-        """
-        We call this when we leave the state
-        Use this for cleanup when needed
-        """
-        pass
-
     def handle_key(self, context, key):
         """
         Handle keyboard input
@@ -113,6 +106,12 @@ class State:
     def handle_nfc(self, context, nfc_reader):
         """
         Handle NFC events
+        """
+        pass
+    
+    def tick(self, context):
+        """
+        Handle state specific actions during main loop
         """
         pass
 
@@ -126,12 +125,6 @@ class State:
 class Playing(State):
     def enter(self, context):
         context.play()
-    
-    def exit(self, context):
-        """
-        Ignore
-        """
-        pass
 
     def handle_key(self, context, key):
         if key == "ENTER":
@@ -150,6 +143,17 @@ class Playing(State):
             context.set_state(Scanning())
         elif key == "DOWN":
             context.set_state(Stopped())
+            
+    def tick(self, context):
+        # If song has ended play the next track unless there is no next track in which case enter Stopped State
+        if context.has_song_ended():
+            has_next = context.get_current_track() < len(context.get_playlist()) - 1
+
+            if has_next: 
+                context.next_track()
+                context.play()
+            else:
+                context.set_state(Stopped())
 
     def get_state_name(self):
         return "Playing"
@@ -158,12 +162,6 @@ class Playing(State):
 class Paused(State):
     def enter(self, context):
         context.pause()
-
-    def exit(self, contex):
-        """
-        Ignore
-        """
-        pass
 
     def handle_key(self, context, key):
         if key == "ENTER":
@@ -188,16 +186,23 @@ class Paused(State):
 class Scanning(State):
     def enter(self, context):
         context.stop()
-        album_name = context.scan()
-        context.load_album(album_name)
-        #context.load_album("VoulezVous")
-        context.set_state(Playing())
-
-    def exit(self, context):
-        pass
+        context.unload_album()
 
     def handle_key(self, context, key):
-        pass
+        if key == "DOWN":
+            context.set_state(Stopped())
+    
+    def handle_nfc(self, context, album_name):
+        context.load_album(album_name)
+        context.set_state(Playing())
+        
+    def tick(self, context):
+        # Scan for NFC tag - Once found load and play
+        if context.get_state_name() == "Scanning":
+            album_name = context.poll()
+            
+            if album_name is not None:
+                context.handle_nfc(album_name)
 
     def get_state_name(self):
         return "Scanning"
@@ -207,9 +212,6 @@ class Stopped(State):
     def enter(self, context):
         context.stop()
         context.unload_album()
-
-    def exit(self, context):
-        pass
 
     def handle_key(self, context, key):
         if key == "UP":
@@ -298,34 +300,36 @@ class NFCReader:
         # Configure PN532 to communicate with MiFare cards
         self.pn532.SAM_configuration()
     
-    def scan(self):
-        while True:
-            # Check if a card is available to read
-            uid = self.pn532.read_passive_target(timeout=0.5)
-    
-            # Try again if no card is available.
-            if uid is not None:
-                break
-            
-        # Set key
-        key_a = b'\xFF\xFF\xFF\xFF\xFF\xFF'
-        data_blocks = []
+    def poll(self):
+        # Check if a card is available to read
+        uid = self.pn532.read_passive_target(timeout=0.5)
+        
+        if uid is None:
+            return None
+        
+        # If so we attempt to read it
+        try:
+            # Set key
+            key_a = b'\xFF\xFF\xFF\xFF\xFF\xFF'
+            data_blocks = []
 
-        for x in range (2):
-            # We need blocks one and two so increment index
-            index = x + 1
-    
-            # Authenticate and read block
-            self.pn532.mifare_classic_authenticate_block(uid, block_number=index, key_number=nfc.MIFARE_CMD_AUTH_A, key=key_a)
-            block = self.pn532.mifare_classic_read_block(index)
-    
-            # Filter block and append to list
-            block =  block.replace(b'\x00', b'').decode('utf-8')
-            data_blocks.append(block)
+            for x in range (2):
+                # We need blocks one and two so increment index
+                index = x + 1
+        
+                # Authenticate and read block
+                self.pn532.mifare_classic_authenticate_block(uid, block_number=index, key_number=nfc.MIFARE_CMD_AUTH_A, key=key_a)
+                block = self.pn532.mifare_classic_read_block(index)
+        
+                # Filter block and append to list
+                block =  block.replace(b'\x00', b'').decode('utf-8')
+                data_blocks.append(block)
 
-        # Append blocks 1 and 2 
-        album_name = data_blocks[0] + data_blocks[1] # Assume we always read two blocks
-        return album_name
+            # Append blocks 1 and 2 
+            album_name = data_blocks[0] + data_blocks[1] # Assume we always read two blocks
+            return album_name
+        except:
+            return None
 
 
 def format_playlist(current_track, playlist):
@@ -343,20 +347,27 @@ def format_playlist(current_track, playlist):
     return playlist_output
 
 
-def build_output(app, confirmation_action):
+def build_output(app, confirmation_action):    
     # Return confirmation message if confirmation action is active
     if confirmation_action is not None:
         return "Are you sure you want to " + confirmation_action + " [Y / N]"
     
-    # If user is not performing a confirmation action build playback UI
+    # Get app state - Add it to output
     state = app.get_state_name()
+    output = state + "\n"
+
+    # Stopped and Scanning states do not have playlists so output instructions
+    if state == "Stopped":
+        return output + "No album loaded. Press the up arrow to scan for an album"
+    elif state == "Scanning":
+        return output + "Please tap a card to load an album"
+    
+    # Get playlist - highlight current track - amend to output
     current_track = app.get_current_track()
     playlist = app.get_playlist()
+    playlist_output = format_playlist(current_track, playlist) if playlist != [] else "No playlist found!"
 
-    playlist_output = format_playlist(current_track, playlist) if playlist != [] else "No album loaded. Press the up arrow to scan for an album"
-    output = state + "\n" + playlist_output
-
-    return output
+    return output + playlist_output
 
 
 def print_output(screen, output):
@@ -455,16 +466,8 @@ def main(screen):
                 
                 if confirmation_action == "QUIT_CONFIRMED":
                     running = False
-
-        # If song has ended play the next track unless there is no next track in which case enter Stopped State
-        if app.has_song_ended():
-            has_next = app.get_current_track() < len(app.get_playlist()) - 1
-
-            if has_next: 
-                app.next_track()
-                app.play()
-            else:
-                app.set_state(Stopped())
+                    
+        app.tick()
 
         # Build output based on state of app / confirmation_action and print
         previous_output = handle_output(app, screen, confirmation_action, previous_output)
