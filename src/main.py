@@ -8,7 +8,10 @@ import pn532.pn532 as nfc
 from pn532 import *
 from pathlib import Path
 import time
+from pathlib import Path
 
+ROOT_DIR = Path(__file__).resolve().parent.parent
+ALBUMS_DIR = ROOT_DIR / "albums"
 
 class Context:
     def __init__(self, initial_state, player, nfc_reader):
@@ -229,9 +232,8 @@ class Player:
 
     def load_album(self, album_name):
         # Get all songs in album - Order them into queue
-        mp3_files = list(
-            glob.iglob('../albums/'+ album_name +'/*.mp3')
-        )
+        album_path = ALBUMS_DIR / album_name
+        mp3_files = list(album_path.glob("*.mp3"))
 
         self.playlist = natsorted(mp3_files)
         self.current_track = 0
@@ -347,10 +349,16 @@ def format_playlist(current_track, playlist):
     return playlist_output
 
 
-def build_output(app, confirmation_action):    
+def build_output(app, confirmation_action):
     # Return confirmation message if confirmation action is active
     if confirmation_action is not None:
-        return "Are you sure you want to " + confirmation_action + " [Y / N]"
+        confirmation_action_output = ""
+        if confirmation_action == "QUIT":
+            confirmation_action_output = "quit"
+        elif confirmation_action == "SHUTDOWN":
+            confirmation_action_output = "shut down"
+            
+        return "Are you sure you want to " + confirmation_action_output + " [Y / N]"
     
     # Get app state - Add it to output
     state = app.get_state_name()
@@ -411,6 +419,8 @@ def handle_action_input(app, key):
         app.handle_key("DOWN")
     elif key == ord("q") or key == ord("Q"):
         confirmation_action = "QUIT"
+    elif key == curses.KEY_DC:
+        confirmation_action = "SHUTDOWN"
     
     return confirmation_action
 
@@ -421,7 +431,7 @@ def handle_confirmation_input(key, confirmation_action):
         if confirmation_action == "QUIT":
             confirmation_action = "QUIT_CONFIRMED"
         elif confirmation_action == "SHUTDOWN":
-            pass    # Shutdown - Do nothing right now, I do not want to test this yet
+            confirmation_action = "SHUTDOWN_CONFIRMED"
 
     # Otherwise reset confirmation_action to none
     elif key == ord("n") or key == ord("N"):
@@ -430,6 +440,11 @@ def handle_confirmation_input(key, confirmation_action):
         pass    # Print bad input
 
     return confirmation_action
+
+
+def system_shutdown():
+    import subprocess
+    subprocess.run(["sudo", "shutdown", "-h", "now"])
 
 
 def main(screen):
@@ -446,8 +461,9 @@ def main(screen):
     nfc_reader = NFCReader()
     app = Context(Stopped(), player, nfc_reader)
 
-    # Used to handle special cases in app such as Quit and Shut Down - Used by handle_output() to render action confirmation screen 
+    # Used to handle special cases in app such as Quit and Shut Down - confirmation_action used by handle_output() to render action confirmation screen 
     confirmation_action = None
+    shutdown_type = None
 
     # Store previous output to conditionally render UI if change is made - This stops UI flicker
     previous_output = None
@@ -464,13 +480,17 @@ def main(screen):
             else:
                 confirmation_action = handle_confirmation_input(key, confirmation_action)
                 
-                if confirmation_action == "QUIT_CONFIRMED":
+                if confirmation_action in ("QUIT_CONFIRMED", "SHUTDOWN_CONFIRMED"):
                     running = False
+                    shutdown_type = confirmation_action
                     
         app.tick()
 
         # Build output based on state of app / confirmation_action and print
         previous_output = handle_output(app, screen, confirmation_action, previous_output)
 
+    # If shutdown system if user wishes otherwise just let execution end
+    if shutdown_type == "SHUTDOWN_CONFIRMED":
+        system_shutdown()
 
 curses.wrapper(main)
