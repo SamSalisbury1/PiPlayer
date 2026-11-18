@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>PiPlayer</title>
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+
+<body>
+
+    <main class="app-container">
+        <canvas id="metaball-background"></canvas>
+
+        <div class="media-control-panel glass">
+            <div class="track-information">
+                <h2>{{ track.song_name }}</h2>
+                <p>{{ track.album_name }}</p>
+            </div>
+
+            <div class="playback-display">
+                <p class="playback-display-text">0:00</p>
+                <p class="playback-display-text">-3:06</p>
+            </div>
+
+            <div class="controls">
+                <button class="media-control-button"><img src="{{ url_for('static', filename='icons/antenna.svg') }}" alt="Scan" class="media-control-button-icon"></button>
+                <button class="media-control-button"><img src="{{ url_for('static', filename='icons/prev-track.svg') }}" alt="Prev" class="media-control-button-icon"></button>
+                <button class="media-control-button"><img src="{{ url_for('static', filename='icons/play.svg') }}" alt="Play" class="media-control-button-icon"></button>
+                <button class="media-control-button"><img src="{{ url_for('static', filename='icons/next-track.svg') }}" alt="Next" class="media-control-button-icon"></button>
+                <button class="media-control-button"><img src="{{ url_for('static', filename='icons/stop.svg') }}" alt="Stop" class="media-control-button-icon"></button>
+            </div>
+        </div>
+
+        <div id="volume-control">
+            <button class="circle-button glass"><img src="{{ url_for('static', filename='icons/volume-control-toggle.svg') }}" alt="Toggle Volume Control" class="circle-button-icon"></button>
+        </div>
+
+        <div id="shutdown-control" class="glass">
+            <button class="long-circle-button"><img src="{{ url_for('static', filename='icons/exit.svg') }}" alt="Exit Application" class="circle-button-icon"></button>
+            <button class="long-circle-button"><img src="{{ url_for('static', filename='icons/power.svg') }}" alt="Power Off System" class="circle-button-icon"></button>
+        </div>
+
+    </main>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/metaballs.js') }}"></script>
+
+</body>
+
+</html>
